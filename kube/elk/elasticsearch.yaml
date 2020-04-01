@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: monitoring
+  labels:
+    k8s-app: elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: elasticsearch
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: elasticsearch
+    spec:
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9200
+          resources:
+            limits:
+              cpu: "1"
+              memory: "4Gi"
+          volumeMounts:
+            - name: datadir
+              mountPath: /usr/share/elasticsearch/data
+          env:
+            - name: discovery.type
+              value: single-node
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command:
+            ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: datadir
+              mountPath: /usr/share/elasticsearch/data
+        - name: increase-vm-max-map
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: increase-fd-ulimit
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "ulimit -n 65536"]
+          securityContext:
+            privileged: true
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: datadir
+          hostPath:
+            path: /opt/elasticsearch/data
+            type: ""
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+  namespace: monitoring
+  labels:
+    k8s-app: elasticsearch-service
+spec: 
+  selector:
+      k8s-app: elasticsearch
+  ports:
+    - port: 9200
+      protocol: TCP 
+      targetPort: 9200 
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: elasticsearch-ingress
+  namespace: monitoring
+  labels:
+    k8s-app: elasticsearch
+spec:
+  rules:
+    - host: elasticsearch.bdi.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: elasticsearch-service
+              servicePort: 9200

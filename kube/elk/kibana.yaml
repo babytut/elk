@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment 
+metadata:
+  name: kibana
+  namespace: monitoring
+  labels:
+    k8s-app: kibana 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: kibana 
+  template:
+    metadata:
+      labels:
+        k8s-app: kibana 
+    spec:
+      containers:
+        - name: kibana 
+          image: docker.elastic.co/kibana/kibana:7.6.2
+          env:
+            - name: ELASTICSEARCH_HOSTS 
+              value: http://elasticsearch-service:9200
+          ports:
+            - containerPort: 5601
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 1
+              memory: 2Gi
+            requests:
+              memory: 1Gi
+---
+apiVersion: v1 
+kind: Service 
+metadata:
+  name: kibana-service
+  namespace: monitoring 
+  labels:
+    k8s-app: kibana 
+spec: 
+  selector:
+      k8s-app: kibana
+  ports:
+    - port: 5601
+      protocol: TCP 
+      targetPort: 5601 
+--- 
+apiVersion: extensions/v1beta1 
+kind: Ingress 
+metadata: 
+  name: kibana-ingress 
+  namespace: monitoring
+  labels:
+    k8s-app: kibana 
+spec:
+  rules:
+    - host: kibanabdi.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: kibana-service
+              servicePort: 5601
