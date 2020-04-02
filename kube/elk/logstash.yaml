@@ -76,7 +76,7 @@ spec:
 apiVersion: v1 
 kind: Service 
 metadata:
-  name: logstash-serviceh
+  name: logstash-service
   namespace: monitoring
   labels:
     k8s-app: logstash 
